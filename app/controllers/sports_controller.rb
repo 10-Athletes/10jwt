@@ -1,4 +1,4 @@
-Class SportsController < ApplicationController
+class SportsController < ApplicationController
   def index
       @sports = Sport.all
       if @sports
