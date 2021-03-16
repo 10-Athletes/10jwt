@@ -1,9 +1,9 @@
 class SportsController < ApplicationController
   def index
-      @sports = Sport.all
+      @sports = Sport.all.to_a
       if @sports
         render json: {
-          sports: @sports
+          sports: @sports,
         }
       else
         render json: {
