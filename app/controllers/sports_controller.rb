@@ -1,6 +1,8 @@
 class SportsController < ApplicationController
+  skip_before_action :verify_authenticity_token
+
   def index
-      @sports = Sport.all.to_a
+      @sports = Sport.all.as_json
       if @sports
         render json: {
           sports: @sports,
