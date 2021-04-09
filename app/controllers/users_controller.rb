@@ -1,6 +1,20 @@
 class UsersController < ApplicationController
   skip_before_action :verify_authenticity_token
 
+  def index
+    @users = User.all.as_json
+    if @users
+      render json: {
+        users: @users
+      }
+    else
+      render json: {
+        status: 500,
+        errors: ['no users found']
+      }
+    end
+  end
+
   def create
     input = User.new(params.permit(:username, :password, :firstname, :lastname, :email))
     if(input.save)
