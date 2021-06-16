@@ -39,8 +39,11 @@ class UsersController < ApplicationController
   end
 
   def ratingChange()
-    team1 = params["newEvent"]["teammates"]
+    team1 = [@user]
+    team1 += params["newEvent"]["teammates"]
     team2 = params["newEvent"]["opponents"]
+    @team1 = []
+    @team2 = []
     team1Rating = 0
     team2Rating = 0
     team1Opponents = []
@@ -49,10 +52,13 @@ class UsersController < ApplicationController
     team2Ratings = []
     numRated = 0
     sportIndeces = []
+    athleteIndeces = []
     team1.each_with_index do |player, idx|
-      currentPlayer = User.find(player.id)
-      updatedPlayer = currentPlayer.getInitialRatingData(1, currentPlayer)
+      currentPlayer = User.find(player["id"])
+      updatedPlayer = getInitialRatingData(1, currentPlayer)
+      # puts "updatedplayersports#{updatedPlayer[0]["sports"]}"
       @team1.push(updatedPlayer[0])
+      # puts "team1p1sports: #{@team1[0]["sports"]}"
       if idx == 0 && updatedPlayer[2] == 0
         p1InitialRating = params["newEvent"]["p1InitialRating"]
         team1Ratings.push(p1InitialRating)
@@ -65,19 +71,21 @@ class UsersController < ApplicationController
         numRated += 1
       end
       sportIndeces.push(updatedPlayer[1])
+      athleteIndeces.push(updatedPlayer[3])
     end
       team1Rating = team1Rating / numRated
     numRated = 0
     team2.each do |player|
-      currentPlayer = User.find(player.id)
-      updatedPlayer = currentPlayer.getInitialRatingData(2, currentPlayer)
-      @team2.push(updatedPlayer)
+      currentPlayer = User.find(player["id"])
+      updatedPlayer = getInitialRatingData(2, currentPlayer)
+      @team2.push(updatedPlayer[0])
       team2Rating += updatedPlayer[2]
       team2Ratings.push(updatedPlayer[2])
       if updatedPlayer[2] > 0
         numRated += 1
       end
       sportIndeces.push(updatedPlayer[1])
+      athleteIndeces.push(updatedPlayer[3])
     end
     if numRated == 0
       team2Rating = team1Rating
@@ -100,16 +108,19 @@ class UsersController < ApplicationController
     amountChanged = 0.05 * amountChanged
   end
   #TODO: refactor so I'm not duplicating 20+ lines of code
-  if winner == "1"
+  if @winner == "1"
     won = true
   else
     won = false
   end
-  #TODO fix numOpponents (sportIndex needs tracking here)
-  # and need to find quantity of events of
-  # that specific sport
+
   @team1.each_with_index do |player, index|
-    numberOfOpponents = player["sports"][sportIndeces[index]].length
+    # if player["sports"].length == 0
+    #   numberOfOpponents = 0
+    # else
+    player["sports"][sportIndeces[index]]["opponents"] ||= player["sports"][sportIndeces[index]][:opponents]
+    numberOfOpponents = player["sports"][sportIndeces[index]]["opponents"].length
+    # end
     # TODO: MAKE THIS WAY MORE EFFICIENT,
     # MAYBE DEFINE A VARIABLE STORED IN PLAYER{sport}
     # MAYBE STORE EVENTS WITHIN PLAYER{sport}
@@ -136,16 +147,29 @@ class UsersController < ApplicationController
       rating = team1Ratings[index]
     end
     rating = calculate(player, rating, change, won, modifierVariable)
+    player["sports"][sportIndeces[index]]["rating"] = rating
   end
-  if "winner" != "1"
+  if @winner != "1"
     won = true
   else
     won = false
   end
-
+  #TODO DRY out this code
   @team2.each_with_index do |player, index|
-    numberOfOpponents = player.opponents.length + team2Opponents[index]
-    numberOfGames = player.events.length + 1
+    numberOfGames = 0
+    # if player["sports"].length == 0
+    #   numberOfOpponents = 0
+    # else
+    # a = index + @team1.length
+    player["sports"][sportIndeces[index + @team1.length]]["opponents"] ||= player["sports"][sportIndeces[index + @team1.length]][:opponents]
+    numberOfOpponents = player["sports"][sportIndeces[index + @team1.length]]["opponents"].length
+    # end
+    player["events"].each do |event|
+      if event["sport"] == @sportID
+        numberOfGames += 1
+      end
+    end
+    numberOfGames += 1
     if numberOfOpponents > numberOfGames
       modifierVariable = numberOfGames
     else
@@ -162,7 +186,9 @@ class UsersController < ApplicationController
       rating = team2Ratings[index]
     end
     rating = calculate(player, rating, change, won, modifierVariable)
+    player["sports"][sportIndeces[index + @team1.length]]["rating"] = rating
   end
+  return [sportIndeces, team1Ratings + team2Ratings, athleteIndeces]
   # if @p2Data[0].length < 5
   #   p2Change = amountChanged * (6 - @p2Data[0].length)
   # else
@@ -253,13 +279,19 @@ def getInitialRatingData(teamNum, player)
   if teamNum == 1
     currentGameOpponents = params["newEvent"]["opponents"]
   elsif teamNum == 2
-    currentGameOpponents =  params["newEvent"]["teammates"]
+    currentGameOpponents = [@user] + params["newEvent"]["teammates"]
   end
   rating = 0
   sportFound = false
+  athleteFound = false
   sportIndex = -1
+  athleteIndex = -1
   player["sports"].each_with_index do |sport, idx|
-    if sport["id"] == @sportID
+    if sport["id"] == "10"
+      athleteFound = true
+      athleteIndex = idx
+    end
+    if sport["id"] == "#{@sportID}" || sport["id"] == @sportID
       sportFound = true
       sportIndex = idx
       rating = sport["rating"]
@@ -273,6 +305,7 @@ def getInitialRatingData(teamNum, player)
     end
   end
   unless sportFound
+    playerOpponents = []
     sportName = Sport.find(@sportID)["name"]
     currentGameOpponents.each do |opponent|
       playerOpponents.push(opponent["id"])
@@ -287,92 +320,164 @@ def getInitialRatingData(teamNum, player)
         }
       )
   end
-
-  return [player, sportIndex, rating]
+  return [player, sportIndex, rating, athleteIndex]
 end
 
-def updateAthlete(index, player)
-  if player == 1
-    opponentID = @p2ID
-    data = @p1Data
-  elsif player == 2
-    opponentID = @p1ID
-    data = @p2Data
+def updateAthlete(index, team, player, sportIndex)
+  if team == 1
+    rating = player["sports"][sportIndex]["rating"]
+    opponents = player["sports"][sportIndex]["opponents"]
+    # data = @p1Data
+  elsif team == 2
+    rating = player["sports"][sportIndex + @team1.length]["rating"]
+    opponents = player["sports"][sportIndex + @team1.length]["opponents"]
   end
   sportIncluded = false
   official = false
+  # Please make this more efficient.
+  # currently loops through here to figure out
+  # if any sport is official prior to looping through
+  # the same content later
   @athlete["participants"][index]["sports"].each do |sport|
     if sport["id"] == @sportID
-      sport["rating"] = data[1]
-      sport["opponents"] = data[0]
+      sport["rating"] = rating
+      sport["opponents"] = opponents
       sportIncluded = true
+      sport["numGames"] += 1
+      if opponents.length >= 5
+        numGames = sport["numGames"]
+        official = true if numGames >= 5
+      end
     end
-    official = true if sport["opponents"].length >= 5
   end
   unless sportIncluded
     sportsArr = []
-    insert_at = @athlete["participants"][index]["sports"].bsearch_index {|sport| sport["rating"] < data[1]}
+    insert_at = @athlete["participants"][index]["sports"].bsearch_index {|sport| sport["rating"] < rating}
      unless insert_at
        insert_at = @athlete["participants"][index]["sports"].length
      end
     @athlete["participants"][index]["sports"].each_with_index do |sport, i|
       if i == insert_at
-        sportsArr.push({id: @sportID, rating: data[1], opponents: [opponentID]})
+
+        sportsArr.push({id: @sportID, rating: rating, opponents: opponents, numGames: 1})
       end
       sportsArr.push(sport)
       # For timing purposes I need to have this line here. This is the case where the sport goes into the
       # last position in the array as nothing is lower rating than it.
       if i == insert_at - 1 && i == @athlete["participants"][index]["sports"].length - 1
-        sportsArr.push({id: @sportID, rating: data[1], opponents: [opponentID]})
+        sportsArr.push({id: @sportID, rating: rating, opponents: opponents, numGames: 1})
       end
     end
 
     @athlete["participants"][index]["sports"] = sportsArr
     # .insert(insert_at, {id: @sportID, rating: data[1], opponents: [opponentID]})
   end
+  currentSportRating = rating
   error = ""
   rating = 0
   count = 0
+  maxRating = 0
   if official
+    officialSports = []
     @athlete["participants"][index]["official"] = true
     @athlete["participants"][index]["sports"].each_with_index do |sport, i|
-      thisRating = data[1]
-      thisOpponents = data[0]
+      thisRating = currentSportRating
+      thisOpponents = opponents
       unless i == insert_at
         thisRating = sport["rating"]
         thisOpponents = sport["opponents"]
       end
-      if thisOpponents.length >= 5
-        thisRating = data[1]
-        if count == 0
-          rating = thisRating
-        elsif count < 11
-          rating = rating + thisRating / 100 * (11 - i)
-        else
-          rating = rating + thisRating / 1000
-        end
-        count += 1
+      #UPDATE FORMULA:
+      #If 1 sport: 100%
+      #If 2 sports: 65% of sport1 + 45% of sport2
+      #If 3 sports: 55% of sport1 + 35% of sport2 + 25% of sport3
+      #If 4 sports: 50% of sport1 + 30% of sport2 + 25% of sport3 + 15% of sport4
+      #If 5 sports: 50% of sport1 + 30% of sport2 + 20% of sport3 + 15% of sport4 + 10% of sport5
+
+      if thisOpponents.length >= 5 && @athlete["participants"][index]["numGames"] >= 5
+        officialSports.push(sport)
       end
+        # thisRating = sport["rating"]
+        # if count == 0 ### [10,9,8,7,6]
+        #   maxRating = thisRating #10
+        #   rating = thisRating * 0.5 #rating = 5
+        # elsif count == 1
+        #   rating = rating + thisRating * 0.35 # rating = 8.15
+        #   maxRating = rating if rating > maxRating
+        # elsif count == 2
+        #   rating = rating + thisRating * 0.2 #rating = 9.75
+        #   maxRating = rating if rating > maxRating
+        # elsif count == 3
+        #   rating = rating + thisRating * 0.1 # rating = 10.45
+        #   maxRating = rating if rating > maxRating
+        # elsif count == 4
+        #   rating = rating + thisRating * 0.05 # rating = 10.75
+        #   maxRating = rating if rating > maxRating
+        # end
+        # count += 1
+      # end
     end
+    maxRating = athleteRatingCalculation(officialSports)
   else
     @athlete["participants"][index]["official"] = false
-    @athlete["participants"][index]["sports"].each_with_index do |sport, i|
-      thisRating = data[1]
-      unless i == insert_at
-        thisRating = sport["rating"]
-      end
-      if i == 0
-        rating = thisRating
-      elsif i < 11
-        rating = rating + thisRating / 100 * (11 - i)
-      else
-        rating = rating + thisRating / 1000
-      end
-    end
+    maxRating = athleteRatingCalculation(@athlete["participants"][index]["sports"])
   end
-  # rating = @athlete["participants"][index]["sports"]
+  #   @athlete["participants"][index]["sports"].each_with_index do |sport, i|
+  #     thisRating = currentSportRating
+  #     unless i == insert_at
+  #       thisRating = sport["rating"]
+  #     end
+  #     if i == 0
+  #       rating = thisRating
+  #       maxRating = rating
+  #     elsif i == 1
+  #       rating = rating * 0.5 + thisRating * 0.35
+  #       maxRating = rating if rating > maxRating
+  #     elsif i == 2
+  #       rating = rating + thisRating * 0.2
+  #       maxRating = rating if rating > maxRating
+  #     elsif i == 3
+  #       rating = rating + thisRating * 0.1
+  #       maxRating = rating if rating > maxRating
+  #     elsif i == 4
+  #       rating = rating + thisRating * 0.05
+  #       maxRating = rating if rating > maxRating
+  #     end
+  #   end
+  # end
+  # # rating = @athlete["participants"][index]["sports"]
 
-  @athlete["participants"][index]["rating"] = rating
+  @athlete["participants"][index]["rating"] = maxRating
+  return [maxRating, official]
+end
+
+def athleteRatingCalculation(sports)
+  if sports.length >= 1
+    maxRating = sports[0]["rating"]
+  else
+    maxRating = 0
+  end
+  if sports.length >= 2
+    rating = sports[0]["rating"] * 0.7 + sports[1]["rating"] * 0.4
+    maxRating = rating if rating > maxRating
+  end
+  if sports.length >= 3
+    rating = sports[0]["rating"] * 0.5 + sports[1]["rating"] * 0.4
+    rating += sports[2]["rating"] * 0.3
+    maxRating = rating if rating > maxRating
+  end
+  if sports.length >= 4
+    rating = sports[0]["rating"] * 0.5 + sports[1]["rating"] * 0.35
+    rating += sports[2]["rating"] * 0.25 + sports[3]["rating"] * 0.2
+    maxRating = rating if rating > maxRating
+  end
+  if sports.length >= 5
+    rating = sports[0]["rating"] * 0.5 + sports[1]["rating"] * 0.3
+    rating += sports[2]["rating"] * 0.25 + sports[3]["rating"] * 0.2
+    rating += sports[4]["rating"] * 0.15
+    maxRating = rating if rating > maxRating
+  end
+  return maxRating
 end
 
 def updateSport
@@ -417,181 +522,311 @@ def update
     @sportID = params["newEvent"]["sport"]
     # @p1 = User.find(@p1ID)
     # @p2 = User.find(@p2ID)
-    ratingChange()
-    p1Index, p2Index = -1, -1
+    ratingChangeData = ratingChange()
+    sportIndeces = ratingChangeData[0]
+    ratings = ratingChangeData[1]
+    # this is the index within the User: Sports array
+    # that matches the athlete sport (id=10)
+    individualAthleteIndeces = ratingChangeData[2]
+    playerIDs = []
+    # This is the index within the Athlete Sport for the
+    # matching user
+    athleteIndeces = []
+    # The index within the sport being played for the
+    # matching user
+    indecesWithinSport = []
+    @team1.each do |player|
+      playerIDs.push(player["id"])
+      athleteIndeces.push(-1)
+      indecesWithinSport.push(-1)
+    end
+    @team2.each do |player|
+      playerIDs.push(player["id"])
+      athleteIndeces.push(-1)
+      indecesWithinSport.push(-1)
+    end
     @athlete["participants"].each_with_index do |participant, index|
-      if participant["id"] == @p1ID
-        p1Index = index
-      elsif participant["id"] == @p2ID
-        p2Index = index
+      playerIDs.each_with_index do |playerID, i|
+        if participant["id"] == playerID
+          athleteIndeces[i] = index
+        end
       end
     end
-    if p1Index < 0
-      p1Index = @athlete["participants"].length
-      @athlete["participants"].push({
-        id: @p1ID,
-        name: p1Name,
-        username: p1Username,
-        rating: @p1Data[1],
-        official: false,
-        sports: [{
-          id: @sportID,
-          rating: @p1Data[1],
-          opponents: @p1Data[0]
-        }]
-      })
-    else
-      updateAthlete(p1Index, 1)
-    end
-    if p2Index < 0
-      p2Index = @athlete["participants"].length
-      @athlete["participants"].push({
-        id: @p2ID,
-        name: p2Name,
-        username: p2Username,
-        rating: @p2Data[1],
-        official: false,
-        sports: [{
-          id: @sportID,
-          rating: @p2Data[1],
-          opponents: @p2Data[0]
-        }]
-      })
-    else
-      updateAthlete(p2Index, 2)
-    end
-    sports = []
-    sportIncluded = false
-    athleteIncluded = false
-    @p1["sports"].each do |sport|
-      if @sportID == sport["id"]
-        sportIncluded = true
-        sport["rating"] = @p1Data[1]
-        sport["opponents"] = @p1Data[0]
+    newAthleteParticipants = []
+    # pushing to array was having timing issues
+    # resolved it by just setting to count position in array
+    count = 0
+    @team1.each_with_index do |player, i|
+      if athleteIndeces[i] < 0
+        name = player["firstname"] + " " + player["lastname"]
+        athleteIndeces[i] = @athlete["participants"].length + newAthleteParticipants.length
+        count += 1
+        newAthleteParticipants[count] =
+        {
+          id: player["id"],
+          name: name,
+          username: player["username"],
+          rating: ratings[i],
+          official: false,
+          sports:
+          [{
+            id: @sportID,
+            rating: player["sports"][sportIndeces[i]]["rating"],
+            opponents: player["sports"][sportIndeces[i]]["opponents"],
+            numGames: 1
+          }]
+        }
+        player["sports"].push(
+          {
+            id: "10",
+            name: "Athlete",
+            rating: player["sports"][sportIndeces[i]]["rating"],
+            official: false
+          }
+        )
+        player.save!
+      else
+        currentPlayerAthleteRating = updateAthlete(athleteIndeces[i], 1, player, sportIndeces[i])
+        player["sports"][individualAthleteIndeces[i]]["rating"] = currentPlayerAthleteRating[0]
+        player["sports"][individualAthleteIndeces[i]]["official"] = currentPlayerAthleteRating[1]
+        player.save!
+        # player["sports"].each do |sport|
+        #   if sport["id"] == "10"
+        #     sport["rating"] = currentPlayerAthleteRating
+        #     found = false
+        #     sport["sports"].each do |athleteSport|
+        #       if athleteSport == @sportID
+        #         found = true
+        #       end
+        #       sport["sports"].push(@sportID) unless found
+        #     end
+        #   end
+        # end
       end
-      if sport["id"] == 10
-        athleteIncluded = true
-        sport["rating"] = @athlete["participants"][p1Index]["rating"]
-        sport["sports"] = @athlete["participants"][p1Index]["sports"]
-        sport["official"] = @athlete["participants"][p1Index]["official"]
+    end
+    newAthleteTeam2Participants = []
+    count2 = 0
+    @team2.each_with_index do |player, i|
+      if athleteIndeces[i + @team1.length] < 0
+        name = player["firstname"] + " " + player["lastname"]
+        athleteIndeces[i+@team1.length] = @athlete["participants"].length + newAthleteParticipants.length + newAthleteTeam2Participants.length
+        count2 += 1
+        newAthleteTeam2Participants[count2]
+        ({
+          id: player["id"],
+          name: name,
+          username: player["username"],
+          rating: ratings[i+@team1.length],
+          official: false,
+          sports:
+          [{
+            id: @sportID,
+            rating: player["sports"][sportIndeces[i + @team1.length]]["rating"],
+            opponents: player["sports"][sportIndeces[i + @team1.length]]["opponents"],
+            numGames: 1
+          }]
+        })
+        player["sports"].push(
+          {
+            id: "10",
+            name: "Athlete",
+            rating: player["sports"][sportIndeces[i + @team1.length]]["rating"],
+            official: false
+          }
+        )
+        player.save!
+      else
+        currentPlayerAthleteRating = updateAthlete(athleteIndeces[i + @team1.length], 2, player, sportIndeces[i+@team1.length])
+        player["sports"][individualAthleteIndeces[i + @team1.length]]["rating"] = currentPlayerAthleteRating[0]
+        player["sports"][individualAthleteIndeces[i + @team1.length]]["offical"] = currentPlayerAthleteRating[1]
+        player.save!
       end
-      sports.push(sport)
     end
-    unless sportIncluded
-      sports.push({
-        id: @sportID,
-        name: params["newEvent"]["sportName"],
-        rating: @p1Data[1],
-        opponents: @p1Data[0]
-      })
-    end
-    unless athleteIncluded
-      sports.push({
-        id: 10,
-        name: "Athlete",
-        rating: @p1Data[1],
-        official: false,
-        sports: [{
-          id: @sportID,
-          rating: @p1Data[1],
-          opponents: @p1Data[0]
-        }]
-      })
-    end
-    @p1["sports"] = sports
-    @p1["events"].push({
-      sport: @sportID,
-      p1ID: @p1ID,
-      p1InitialRating: @p1Data[2],
-      p2ID: @p2ID,
-      p2InitialRating: @p2Data[2],
-      winner: @winner,
-      created: Time.now
-      })
-    @p1.save!
-    sports = []
-    sportIncluded = false
-    athleteIncluded = false
-    @p2["sports"].each do |sport|
-      if @sportID == sport["id"]
-        sportIncluded = true
-        sport["rating"] = @p2Data[1]
-        sport["opponents"] = @p2Data[0]
-      end
-      if sport["id"] == 10
-        athleteIncluded = true
-        sport["rating"] = @athlete["participants"][p2Index]["rating"]
-        sport["sports"] = @athlete["participants"][p2Index]["sports"]
-        sport["official"] = @athlete["participants"][p2Index]["official"]
-      end
-      sports.push(sport)
-    end
-    unless sportIncluded
-      sports.push({
-        id: @sportID,
-        name: params["newEvent"]["sportName"],
-        rating: @p2Data[1],
-        opponents: @p2Data[0]
-      })
-    end
-    unless athleteIncluded
-      sports.push({
-        id: 10,
-        name: "Athlete",
-        rating: @p2Data[1],
-        official: false,
-        sports: [{
-          id: @sportID,
-          rating: @p2Data[1],
-          opponents: @p2Data[0]
-        }]
-      })
-    end
-    @p2["sports"] = sports
-    @p2["events"].push({
-      sport: @sportID,
-      p1ID: @p1ID,
-      p1InitialRating: @p1Data[2],
-      p2ID: @p2ID,
-      p2InitialRating: @p2Data[2],
-      winner: @winner,
-      created: Time.now
-      })
-    @p2.save!
+    @athlete["participants"] += newAthleteParticipants + newAthleteTeam2Participants
+    puts "RIGHT HERE!"
+    puts @athlete.as_json
     @athlete.save!
     @sport = Sport.find(@sportID)
-    p1Updated = false
-    p2Updated = false
-    @sport.participants.each do |participant|
-      if participant["id"] == @p1ID
-        p1Updated = true
-        participant["rating"] = @p1Data[1]
-        participant["opponents"] = @p1Data[0]
-      elsif participant["id"] == @p2ID
-        p2Updated = true
-        participant["rating"] = @p2Data[1]
-        participant["opponents"] = @p2Data[0]
+    @sport["participants"].each_with_index do |participant, index|
+      playerIDs.each_with_index do |player, i|
+        if participant["id"] == player
+          indecesWithinSport[i] = index
+        end
       end
     end
-    unless p1Updated
-      @sport["participants"].push({
-        id: @p1ID,
-        name: p1Name,
-        username: p1Username,
-        rating: @p1Data[1],
-        opponents: @p1Data[0],
+    @team1.each_with_index do |player, i|
+  
+      if indecesWithinSport[i] < 0
+        name = player["firstname"] + " " + player["lastname"]
+        # indecesWithinSport[i] = @sport["participants"].length
+        @sport["participants"].push
+        ({
+          id: player["id"],
+          name: name,
+          username: player["username"],
+          rating: ratings[i],
+          opponents: player["sports"][sportIndeces[i]]["opponents"],
+          gamesPlayed: 1
         })
+      else
+        @sport["participants"][indecesWithinSport[i]]["rating"] = ratings[i]
+        @sport["participants"][indecesWithinSport[i]]["opponents"] = player["sports"][sportIndeces[i]]["opponents"]
+        @sport["participants"][indecesWithinSport[i]]["gamesPlayed"] ||= 0
+        @sport["participants"][indecesWithinSport[i]]["gamesPlayed"] += 1
+      end
     end
-    unless p2Updated
-      @sport["participants"].push({
-        id: @p2ID,
-        name: p2Name,
-        username: p2Username,
-        rating: @p2Data[1],
-        opponents: @p2Data[0],
+    @team2.each_with_index do |player, i|
+      thisPlayer = player.as_json
+      if indecesWithinSport[i + @team1.length] < 0
+        name = thisPlayer["firstname"] + " " + thisPlayer["lastname"]
+        # indecesWithinSport[i+@team1.length] = @sport["participants"].length
+        @sport["participants"].push
+        ({
+          id: thisPlayer["id"],
+          name: name,
+          username: thisPlayer["username"],
+          rating: ratings[i+@team1.length],
+          opponents: thisPlayer["sports"][sportIndeces[i+@team1.length]]["opponents"]
         })
+      else
+        @sport["participants"][indecesWithinSport[i+@team1.length]]["rating"] = ratings[i+@team1.length]
+        @sport["participants"][indecesWithinSport[i+@team1.length]]["opponents"] = thisPlayer["sports"][sportIndeces[i+@team1.length]]["opponents"]
+        @sport["participants"][indecesWithinSport[i+@team1.length]]["gamesPlayed"] ||= 0
+        @sport["participants"][indecesWithinSport[i+@team1.length]]["gamesPlayed"] += 1
+      end
     end
     @sport.save!
+    # sports = []
+    # sportIncluded = false
+    # athleteIncluded = false
+    # @p1["sports"].each do |sport|
+    #   if @sportID == sport["id"]
+    #     sportIncluded = true
+    #     sport["rating"] = @p1Data[1]
+    #     sport["opponents"] = @p1Data[0]
+    #   end
+    #   if sport["id"] == 10
+    #     athleteIncluded = true
+    #     sport["rating"] = @athlete["participants"][p1Index]["rating"]
+    #     sport["sports"] = @athlete["participants"][p1Index]["sports"]
+    #     sport["official"] = @athlete["participants"][p1Index]["official"]
+    #   end
+    #   sports.push(sport)
+    # end
+    # unless sportIncluded
+    #   sports.push({
+    #     id: @sportID,
+    #     name: params["newEvent"]["sportName"],
+    #     rating: @p1Data[1],
+    #     opponents: @p1Data[0]
+    #   })
+    # end
+    # unless athleteIncluded
+    #   sports.push({
+    #     id: 10,
+    #     name: "Athlete",
+    #     rating: @p1Data[1],
+    #     official: false,
+    #     sports: [{
+    #       id: @sportID,
+    #       rating: @p1Data[1],
+    #       opponents: @p1Data[0]
+    #     }]
+    #   })
+    # end
+    # @p1["sports"] = sports
+    # @p1["events"].push({
+    #   sport: @sportID,
+    #   p1ID: @p1ID,
+    #   p1InitialRating: @p1Data[2],
+    #   p2ID: @p2ID,
+    #   p2InitialRating: @p2Data[2],
+    #   winner: @winner,
+    #   created: Time.now
+    #   })
+    # @p1.save!
+    # sports = []
+    # sportIncluded = false
+    # athleteIncluded = false
+    # @p2["sports"].each do |sport|
+    #   if @sportID == sport["id"]
+    #     sportIncluded = true
+    #     sport["rating"] = @p2Data[1]
+    #     sport["opponents"] = @p2Data[0]
+    #   end
+    #   if sport["id"] == 10
+    #     athleteIncluded = true
+    #     sport["rating"] = @athlete["participants"][p2Index]["rating"]
+    #     sport["sports"] = @athlete["participants"][p2Index]["sports"]
+    #     sport["official"] = @athlete["participants"][p2Index]["official"]
+    #   end
+    #   sports.push(sport)
+    # end
+    # unless sportIncluded
+    #   sports.push({
+    #     id: @sportID,
+    #     name: params["newEvent"]["sportName"],
+    #     rating: @p2Data[1],
+    #     opponents: @p2Data[0]
+    #   })
+    # end
+    # unless athleteIncluded
+    #   sports.push({
+    #     id: 10,
+    #     name: "Athlete",
+    #     rating: @p2Data[1],
+    #     official: false,
+    #     sports: [{
+    #       id: @sportID,
+    #       rating: @p2Data[1],
+    #       opponents: @p2Data[0]
+    #     }]
+    #   })
+    # end
+    # @p2["sports"] = sports
+    # @p2["events"].push({
+    #   sport: @sportID,
+    #   p1ID: @p1ID,
+    #   p1InitialRating: @p1Data[2],
+    #   p2ID: @p2ID,
+    #   p2InitialRating: @p2Data[2],
+    #   winner: @winner,
+    #   created: Time.now
+    #   })
+    # @p2.save!
+    # @athlete.save!
+    # @sport = Sport.find(@sportID)
+    # p1Updated = false
+    # p2Updated = false
+    # @sport.participants.each do |participant|
+    #   if participant["id"] == @p1ID
+    #     p1Updated = true
+    #     participant["rating"] = @p1Data[1]
+    #     participant["opponents"] = @p1Data[0]
+    #   elsif participant["id"] == @p2ID
+    #     p2Updated = true
+    #     participant["rating"] = @p2Data[1]
+    #     participant["opponents"] = @p2Data[0]
+    #   end
+    # end
+    # unless p1Updated
+    #   @sport["participants"].push({
+    #     id: @p1ID,
+    #     name: p1Name,
+    #     username: p1Username,
+    #     rating: @p1Data[1],
+    #     opponents: @p1Data[0],
+    #     })
+    # end
+    # unless p2Updated
+    #   @sport["participants"].push({
+    #     id: @p2ID,
+    #     name: p2Name,
+    #     username: p2Username,
+    #     rating: @p2Data[1],
+    #     opponents: @p2Data[0],
+    #     })
+    # end
     render json: {status: 200, updated: true}
   elsif params.has_key?("newSport")
     updateSport()
