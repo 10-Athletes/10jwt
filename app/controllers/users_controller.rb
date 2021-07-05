@@ -458,20 +458,26 @@ def athleteRatingCalculation(sports)
     maxRating = 0
   end
   if sports.length >= 2
+    puts sports
+    # sports[0]["rating"] ||= sports[0][:rating]
+    # sports[1]["rating"] ||= sports[1][:rating]
     rating = sports[0]["rating"] * 0.7 + sports[1]["rating"] * 0.4
     maxRating = rating if rating > maxRating
   end
   if sports.length >= 3
+    # sports[2]["rating"] ||= sports[2][:rating]
     rating = sports[0]["rating"] * 0.5 + sports[1]["rating"] * 0.4
     rating += sports[2]["rating"] * 0.3
     maxRating = rating if rating > maxRating
   end
   if sports.length >= 4
+    # sports[3]["rating"] ||= sports[3][:rating]
     rating = sports[0]["rating"] * 0.5 + sports[1]["rating"] * 0.35
     rating += sports[2]["rating"] * 0.25 + sports[3]["rating"] * 0.2
     maxRating = rating if rating > maxRating
   end
   if sports.length >= 5
+    # sports[4]["rating"] ||= sports[4][:rating]
     rating = sports[0]["rating"] * 0.5 + sports[1]["rating"] * 0.3
     rating += sports[2]["rating"] * 0.25 + sports[3]["rating"] * 0.2
     rating += sports[4]["rating"] * 0.15
@@ -654,43 +660,52 @@ def update
         end
       end
     end
+    participantsLength = @sport["participants"].length
     @team1.each_with_index do |player, i|
-  
+      puts "team1 included?"
+      puts indecesWithinSport[i]
       if indecesWithinSport[i] < 0
         name = player["firstname"] + " " + player["lastname"]
         # indecesWithinSport[i] = @sport["participants"].length
-        @sport["participants"].push
-        ({
+        @sport["participants"][participantsLength] =
+        {
           id: player["id"],
           name: name,
           username: player["username"],
           rating: ratings[i],
           opponents: player["sports"][sportIndeces[i]]["opponents"],
           gamesPlayed: 1
-        })
+        }
+        puts "LOOK RIGHT HERE!!!!"
+        puts @sport["participants"][participantsLength]
+        participantsLength += 1
       else
-        @sport["participants"][indecesWithinSport[i]]["rating"] = ratings[i]
-        @sport["participants"][indecesWithinSport[i]]["opponents"] = player["sports"][sportIndeces[i]]["opponents"]
+        puts @sport["participants"][indecesWithinSport[i]]
+        @sport["participants"][indecesWithinSport[i]]["rating"] ||= ratings[i]
+        @sport["participants"][indecesWithinSport[i]]["opponents"] ||= player["sports"][sportIndeces[i]]["opponents"]
         @sport["participants"][indecesWithinSport[i]]["gamesPlayed"] ||= 0
         @sport["participants"][indecesWithinSport[i]]["gamesPlayed"] += 1
       end
     end
     @team2.each_with_index do |player, i|
       thisPlayer = player.as_json
+      puts "team2 included?"
+      puts indecesWithinSport[i + @team1.length]
       if indecesWithinSport[i + @team1.length] < 0
         name = thisPlayer["firstname"] + " " + thisPlayer["lastname"]
         # indecesWithinSport[i+@team1.length] = @sport["participants"].length
-        @sport["participants"].push
-        ({
+        @sport["participants"][participantsLength] =
+        {
           id: thisPlayer["id"],
           name: name,
           username: thisPlayer["username"],
           rating: ratings[i+@team1.length],
           opponents: thisPlayer["sports"][sportIndeces[i+@team1.length]]["opponents"]
-        })
+        }
+        participantsLength += 1
       else
-        @sport["participants"][indecesWithinSport[i+@team1.length]]["rating"] = ratings[i+@team1.length]
-        @sport["participants"][indecesWithinSport[i+@team1.length]]["opponents"] = thisPlayer["sports"][sportIndeces[i+@team1.length]]["opponents"]
+        @sport["participants"][indecesWithinSport[i+@team1.length]]["rating"] ||= ratings[i+@team1.length]
+        @sport["participants"][indecesWithinSport[i+@team1.length]]["opponents"] ||= thisPlayer["sports"][sportIndeces[i+@team1.length]]["opponents"]
         @sport["participants"][indecesWithinSport[i+@team1.length]]["gamesPlayed"] ||= 0
         @sport["participants"][indecesWithinSport[i+@team1.length]]["gamesPlayed"] += 1
       end
