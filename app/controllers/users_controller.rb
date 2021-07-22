@@ -287,7 +287,7 @@ def getInitialRatingData(teamNum, player)
   sportIndex = -1
   athleteIndex = -1
   player["sports"].each_with_index do |sport, idx|
-    if sport["id"] == "10"
+    if sport["id"] == "10" || sport["id"]
       athleteFound = true
       athleteIndex = idx
     end
@@ -329,8 +329,12 @@ def updateAthlete(index, team, player, sportIndex)
     opponents = player["sports"][sportIndex]["opponents"]
     # data = @p1Data
   elsif team == 2
-    rating = player["sports"][sportIndex + @team1.length]["rating"]
-    opponents = player["sports"][sportIndex + @team1.length]["opponents"]
+    # puts "player!"
+    # puts player.as_json["sports"][2]
+    # puts sportIndex
+    # puts  @team1.length
+    rating = player["sports"][sportIndex]["rating"]
+    opponents = player["sports"][sportIndex]["opponents"]
   end
   sportIncluded = false
   official = false
@@ -531,6 +535,8 @@ def update
     ratingChangeData = ratingChange()
     sportIndeces = ratingChangeData[0]
     ratings = ratingChangeData[1]
+    puts "ratings"
+    puts ratings
     # this is the index within the User: Sports array
     # that matches the athlete sport (id=10)
     individualAthleteIndeces = ratingChangeData[2]
@@ -551,6 +557,7 @@ def update
       athleteIndeces.push(-1)
       indecesWithinSport.push(-1)
     end
+
     @athlete["participants"].each_with_index do |participant, index|
       playerIDs.each_with_index do |playerID, i|
         if participant["id"] == playerID
@@ -562,12 +569,14 @@ def update
     # pushing to array was having timing issues
     # resolved it by just setting to count position in array
     count = 0
+    puts "indeces"
+    puts athleteIndeces
     @team1.each_with_index do |player, i|
       if athleteIndeces[i] < 0
         name = player["firstname"] + " " + player["lastname"]
         athleteIndeces[i] = @athlete["participants"].length + newAthleteParticipants.length
         count += 1
-        newAthleteParticipants[count] =
+        newAthleteParticipants[count-1] =
         {
           id: player["id"],
           name: name,
@@ -616,8 +625,8 @@ def update
       if athleteIndeces[i + @team1.length] < 0
         name = player["firstname"] + " " + player["lastname"]
         athleteIndeces[i+@team1.length] = @athlete["participants"].length + newAthleteParticipants.length + newAthleteTeam2Participants.length
-        count2 += 1
-        newAthleteTeam2Participants[count2]
+        count2 += 1 
+        newAthleteTeam2Participants[count2-1] =
         ({
           id: player["id"],
           name: name,
