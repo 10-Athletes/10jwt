@@ -10,20 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2021_04_03_000330) do
+ActiveRecord::Schema.define(version: 2021_08_13_204319) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
   create_table "events", force: :cascade do |t|
     t.integer "sport"
-    t.integer "p1ID"
-    t.integer "p1InitialRating"
-    t.integer "p2ID"
-    t.integer "p2InitialRating"
     t.integer "winner"
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
+    t.json "team1", default: [], array: true
+    t.json "team2", default: [], array: true
+    t.float "team1InitialRating"
+    t.float "team2InitialRating"
   end
 
   create_table "sports", force: :cascade do |t|

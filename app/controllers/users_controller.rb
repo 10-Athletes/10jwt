@@ -73,7 +73,14 @@ class UsersController < ApplicationController
       sportIndeces.push(updatedPlayer[1])
       athleteIndeces.push(updatedPlayer[3])
     end
-      team1Rating = team1Rating / numRated
+    team1Rating = team1Rating / numRated
+    team1Ratings.each_with_index do |playerRating, idx|
+      if playerRating == 0
+        team1Ratings[idx] = team1Rating
+        playerRating = team1Rating
+        @team1[idx]["sports"][sportIndeces[idx]]["rating"] = playerRating
+      end
+    end
     numRated = 0
     team2.each do |player|
       currentPlayer = User.find(player["id"])
@@ -92,8 +99,31 @@ class UsersController < ApplicationController
     else
       team2Rating = team2Rating / numRated
     end
+    team2Ratings.each_with_index do |playerRating, idx|
+      if playerRating == 0
+        playerRating = team2Rating
+        team2Ratings[idx] = team2Rating
+        @team2[idx]["sports"][sportIndeces[idx + @team1.length]]["rating"] = playerRating
+      end
+    end
 
   @winner = params["newEvent"]["winner"]
+  @event = {}
+    @event["sport"] = @sportID
+    @event["team1"] = []
+    @event["team2"] = []
+    @event["winner"] = @winner
+
+  @team1.each_with_index do |player, idx|
+    @event["team1"][idx] = {}
+    @event["team1"][idx]["id"] = player["id"]
+    @event["team1"][idx]["initialRating"] = team1Ratings[idx]
+  end
+  @team2.each_with_index do |player, idx|
+    @event["team2"][idx] = {}
+    @event["team2"][idx]["id"] = player["id"]
+    @event["team2"][idx]["initialRating"] = team2Ratings[idx]
+  end
 
   amountChanged = (team2Rating - team1Rating).abs / 2 + 1
   if team1Rating > team2Rating
@@ -148,6 +178,7 @@ class UsersController < ApplicationController
     end
     rating = calculate(player, rating, change, won, modifierVariable)
     player["sports"][sportIndeces[index]]["rating"] = rating
+    @event["team1"][index]["ratingChange"] = rating - @event["team1"][index]["initialRating"]
   end
   if @winner != "1"
     won = true
@@ -187,7 +218,10 @@ class UsersController < ApplicationController
     end
     rating = calculate(player, rating, change, won, modifierVariable)
     player["sports"][sportIndeces[index + @team1.length]]["rating"] = rating
+    @event["team2"][index]["ratingChange"] = rating - @event["team2"][index]["initialRating"]
   end
+  @event["team1InitialRating"] = team1Rating
+  @event["team2InitialRating"] = team2Rating
   return [sportIndeces, team1Ratings + team2Ratings, athleteIndeces]
   # if @p2Data[0].length < 5
   #   p2Change = amountChanged * (6 - @p2Data[0].length)
@@ -343,6 +377,7 @@ def updateAthlete(index, team, player, sportIndex)
   # if any sport is official prior to looping through
   # the same content later
   @athlete["participants"][index]["sports"].each do |sport|
+    sport["numGames"] ||= 0
     if sport["id"] == @sportID
       sport["rating"] = rating
       sport["opponents"] = opponents
@@ -362,14 +397,26 @@ def updateAthlete(index, team, player, sportIndex)
      end
     @athlete["participants"][index]["sports"].each_with_index do |sport, i|
       if i == insert_at
-
-        sportsArr.push({id: @sportID, rating: rating, opponents: opponents, numGames: 1})
+        currentSpot = {}
+        currentSpot["id"] = @sportID
+        currentSpot["rating"] = rating
+        currentSpot["opponents"] = opponents
+        currentSpot["numGames"] = 1
+        sportsArr[sportsArr.length] = currentSpot
+        # sportsArr.push({id: @sportID, rating: rating, opponents: opponents, numGames: 1})
       end
       sportsArr.push(sport)
       # For timing purposes I need to have this line here. This is the case where the sport goes into the
       # last position in the array as nothing is lower rating than it.
       if i == insert_at - 1 && i == @athlete["participants"][index]["sports"].length - 1
-        sportsArr.push({id: @sportID, rating: rating, opponents: opponents, numGames: 1})
+        currentSpot = {}
+        currentSpot["id"] = @sportID
+        currentSpot["rating"] = rating
+        currentSpot["opponents"] = opponents
+        currentSpot["numGames"] = 1
+        sportsArr[sportsArr.length] = currentSpot
+        # [sport1, sport2]
+        # sportsArr.push({id: @sportID, rating: rating, opponents: opponents, numGames: 1})
       end
     end
 
@@ -397,8 +444,9 @@ def updateAthlete(index, team, player, sportIndex)
       #If 3 sports: 55% of sport1 + 35% of sport2 + 25% of sport3
       #If 4 sports: 50% of sport1 + 30% of sport2 + 25% of sport3 + 15% of sport4
       #If 5 sports: 50% of sport1 + 30% of sport2 + 20% of sport3 + 15% of sport4 + 10% of sport5
-
-      if thisOpponents.length >= 5 && @athlete["participants"][index]["numGames"] >= 5
+      puts "thisopplen: #{thisOpponents.length}"
+      puts "athleteparticipantsindex: #{@athlete["participants"][index]}"
+      if thisOpponents.length >= 5 && @athlete["participants"][index]["sports"][i]["numGames"] >= 5
         officialSports.push(sport)
       end
         # thisRating = sport["rating"]
@@ -507,7 +555,7 @@ def updateSport
       })
     end
   @user.save!
-  render json: {status: 200}
+  render json: {status: 200, updated: true}
 end
 
 # let event =
@@ -551,13 +599,15 @@ def update
       playerIDs.push(player["id"])
       athleteIndeces.push(-1)
       indecesWithinSport.push(-1)
+      player["events"].push(@event)
     end
     @team2.each do |player|
       playerIDs.push(player["id"])
       athleteIndeces.push(-1)
       indecesWithinSport.push(-1)
+      player["events"].push(@event)
     end
-
+    Event.create(@event)
     @athlete["participants"].each_with_index do |participant, index|
       playerIDs.each_with_index do |playerID, i|
         if participant["id"] == playerID
@@ -625,7 +675,7 @@ def update
       if athleteIndeces[i + @team1.length] < 0
         name = player["firstname"] + " " + player["lastname"]
         athleteIndeces[i+@team1.length] = @athlete["participants"].length + newAthleteParticipants.length + newAthleteTeam2Participants.length
-        count2 += 1 
+        count2 += 1
         newAthleteTeam2Participants[count2-1] =
         ({
           id: player["id"],
@@ -638,7 +688,6 @@ def update
             id: @sportID,
             rating: player["sports"][sportIndeces[i + @team1.length]]["rating"],
             opponents: player["sports"][sportIndeces[i + @team1.length]]["opponents"],
-            numGames: 1
           }]
         })
         player["sports"].push(
@@ -658,7 +707,6 @@ def update
       end
     end
     @athlete["participants"] += newAthleteParticipants + newAthleteTeam2Participants
-    puts "RIGHT HERE!"
     puts @athlete.as_json
     @athlete.save!
     @sport = Sport.find(@sportID)
@@ -719,6 +767,7 @@ def update
         @sport["participants"][indecesWithinSport[i+@team1.length]]["gamesPlayed"] += 1
       end
     end
+    @sport["events"][@sport["events"].length] = @event
     @sport.save!
     # sports = []
     # sportIncluded = false
