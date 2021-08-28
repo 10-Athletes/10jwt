@@ -66,6 +66,7 @@ class UsersController < ApplicationController
         numRated += 1
       else
         team1Ratings.push(updatedPlayer[2])
+        team1Rating += updatedPlayer[2]
       end
       if updatedPlayer[2] > 0
         numRated += 1
@@ -138,7 +139,7 @@ class UsersController < ApplicationController
     amountChanged = 0.05 * amountChanged
   end
   #TODO: refactor so I'm not duplicating 20+ lines of code
-  if @winner == "1"
+  if @winner == "1" || @winner == 1
     won = true
   else
     won = false
@@ -176,11 +177,16 @@ class UsersController < ApplicationController
     else
       rating = team1Ratings[index]
     end
-    rating = calculate(player, rating, change, won, modifierVariable)
-    player["sports"][sportIndeces[index]]["rating"] = rating
-    @event["team1"][index]["ratingChange"] = rating - @event["team1"][index]["initialRating"]
+    finalRating = calculate(player, rating, change, won, modifierVariable)
+    puts "rating before"
+    puts rating
+    puts "rating after"
+    puts finalRating
+    player["sports"][sportIndeces[index]]["rating"] = finalRating
+    @event["team1"][index]["ratingChange"] = finalRating - @event["team1"][index]["initialRating"]
+    team1Ratings[index] = finalRating
   end
-  if @winner != "1"
+  if @winner != "1" && @winner != 1
     won = true
   else
     won = false
@@ -216,9 +222,10 @@ class UsersController < ApplicationController
     else
       rating = team2Ratings[index]
     end
-    rating = calculate(player, rating, change, won, modifierVariable)
-    player["sports"][sportIndeces[index + @team1.length]]["rating"] = rating
-    @event["team2"][index]["ratingChange"] = rating - @event["team2"][index]["initialRating"]
+    finalRating = calculate(player, rating, change, won, modifierVariable)
+    player["sports"][sportIndeces[index + @team1.length]]["rating"] = finalRating
+    @event["team2"][index]["ratingChange"] = finalRating - @event["team2"][index]["initialRating"]
+    team2Ratings[index] = finalRating
   end
   @event["team1InitialRating"] = team1Rating
   @event["team2InitialRating"] = team2Rating
@@ -281,7 +288,15 @@ class UsersController < ApplicationController
 end
 
 def calculate(player, initialRating, change, yourTeamWon, modifier)
+  puts "didyourteamwin"
+  puts yourTeamWon
   if yourTeamWon
+    puts "yourteamwon"
+    puts player.as_json
+    puts "change"
+    puts change
+    puts "modifier"
+    puts modifier
     if initialRating + change > 10 && modifier < 5
       rating = 10
     else
@@ -300,6 +315,12 @@ def calculate(player, initialRating, change, yourTeamWon, modifier)
       end
     end
   else
+    puts "yourteamlost"
+    puts player.as_json
+    puts "change"
+    puts change
+    puts "modifier"
+    puts modifier
     if initialRating - change < 1
       rating = 1
     else
@@ -510,30 +531,53 @@ def athleteRatingCalculation(sports)
     maxRating = 0
   end
   if sports.length >= 2
-    puts sports
     # sports[0]["rating"] ||= sports[0][:rating]
     # sports[1]["rating"] ||= sports[1][:rating]
-    rating = sports[0]["rating"] * 0.7 + sports[1]["rating"] * 0.4
-    maxRating = rating if rating > maxRating
+    rating = sports[0]["rating"] * 0.55 + sports[1]["rating"] * 0.5
+    if rating > maxRating + sports[1]["rating"] * 0.01
+      maxRating = rating
+    else
+      maxRating = maxRating + sports[1]["rating"] * 0.01
+    end
   end
+  #scenarios:
+  # 1) avg of sports + 10% top rated = max
+  # 2) sport1+1%(sport2) + 1%(sport3) = max
+  # 3) avg of sport1/2 + 5% sport1 + 1%(sport3) = max
   if sports.length >= 3
     # sports[2]["rating"] ||= sports[2][:rating]
-    rating = sports[0]["rating"] * 0.5 + sports[1]["rating"] * 0.4
-    rating += sports[2]["rating"] * 0.3
-    maxRating = rating if rating > maxRating
+    rating = sports[0]["rating"] / 3 + sports[0]["rating"] / 10 + sports[1]["rating"] / 3
+    rating += sports[2]["rating"] / 3
+    if rating > maxRating + sports[2]["rating"] * 0.01
+      maxRating = rating  #case 1
+    else
+      maxRating = maxRating + sports[2]["rating"] * 0.01 # case2 AND case3
+    end
   end
+  #scenarios:
+  # 1) avg of sports + 15% top rated = max
+  # 2) sport1+1%(sport2) + 1%(sport3) = max
+  # 3) avg of sport1/2 + 5% sport1 + 1%(sport3) = max
   if sports.length >= 4
     # sports[3]["rating"] ||= sports[3][:rating]
-    rating = sports[0]["rating"] * 0.5 + sports[1]["rating"] * 0.35
-    rating += sports[2]["rating"] * 0.25 + sports[3]["rating"] * 0.2
-    maxRating = rating if rating > maxRating
+    rating = sports[0]["rating"] * 0.4 + sports[1]["rating"] * 0.25
+    rating += sports[2]["rating"] * 0.25 + sports[3]["rating"] * 0.25
+    if rating > maxRating + sports[3]["rating"] * 0.01
+      maxRating = rating
+    else
+      maxRating = maxRating + sports[3]["rating"] * 0.01
+    end
   end
   if sports.length >= 5
     # sports[4]["rating"] ||= sports[4][:rating]
-    rating = sports[0]["rating"] * 0.5 + sports[1]["rating"] * 0.3
-    rating += sports[2]["rating"] * 0.25 + sports[3]["rating"] * 0.2
-    rating += sports[4]["rating"] * 0.15
-    maxRating = rating if rating > maxRating
+    rating = sports[0]["rating"] * 0.4 + sports[1]["rating"] * 0.2
+    rating += sports[2]["rating"] * 0.2 + sports[3]["rating"] * 0.2
+    rating += sports[4]["rating"] * 0.2
+    if rating > maxRating + sports[4]["rating"] * 0.01
+      maxRating = rating
+    else
+      maxRating = maxRating + sports[4]["rating"] * 0.01
+    end
   end
   return maxRating
 end
@@ -702,7 +746,7 @@ def update
       else
         currentPlayerAthleteRating = updateAthlete(athleteIndeces[i + @team1.length], 2, player, sportIndeces[i+@team1.length])
         player["sports"][individualAthleteIndeces[i + @team1.length]]["rating"] = currentPlayerAthleteRating[0]
-        player["sports"][individualAthleteIndeces[i + @team1.length]]["offical"] = currentPlayerAthleteRating[1]
+        player["sports"][individualAthleteIndeces[i + @team1.length]]["official"] = currentPlayerAthleteRating[1]
         player.save!
       end
     end
@@ -733,21 +777,16 @@ def update
           opponents: player["sports"][sportIndeces[i]]["opponents"],
           gamesPlayed: 1
         }
-        puts "LOOK RIGHT HERE!!!!"
-        puts @sport["participants"][participantsLength]
         participantsLength += 1
       else
-        puts @sport["participants"][indecesWithinSport[i]]
-        @sport["participants"][indecesWithinSport[i]]["rating"] ||= ratings[i]
-        @sport["participants"][indecesWithinSport[i]]["opponents"] ||= player["sports"][sportIndeces[i]]["opponents"]
+        @sport["participants"][indecesWithinSport[i]]["rating"] = ratings[i]
+        @sport["participants"][indecesWithinSport[i]]["opponents"] = player["sports"][sportIndeces[i]]["opponents"]
         @sport["participants"][indecesWithinSport[i]]["gamesPlayed"] ||= 0
         @sport["participants"][indecesWithinSport[i]]["gamesPlayed"] += 1
       end
     end
     @team2.each_with_index do |player, i|
       thisPlayer = player.as_json
-      puts "team2 included?"
-      puts indecesWithinSport[i + @team1.length]
       if indecesWithinSport[i + @team1.length] < 0
         name = thisPlayer["firstname"] + " " + thisPlayer["lastname"]
         # indecesWithinSport[i+@team1.length] = @sport["participants"].length
@@ -761,8 +800,8 @@ def update
         }
         participantsLength += 1
       else
-        @sport["participants"][indecesWithinSport[i+@team1.length]]["rating"] ||= ratings[i+@team1.length]
-        @sport["participants"][indecesWithinSport[i+@team1.length]]["opponents"] ||= thisPlayer["sports"][sportIndeces[i+@team1.length]]["opponents"]
+        @sport["participants"][indecesWithinSport[i+@team1.length]]["rating"] = ratings[i+@team1.length]
+        @sport["participants"][indecesWithinSport[i+@team1.length]]["opponents"] = thisPlayer["sports"][sportIndeces[i+@team1.length]]["opponents"]
         @sport["participants"][indecesWithinSport[i+@team1.length]]["gamesPlayed"] ||= 0
         @sport["participants"][indecesWithinSport[i+@team1.length]]["gamesPlayed"] += 1
       end
