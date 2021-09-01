@@ -92,6 +92,8 @@ class UsersController < ApplicationController
       if updatedPlayer[2] > 0
         numRated += 1
       end
+      puts "updatedPlayer"
+      puts updatedPlayer.as_json
       sportIndeces.push(updatedPlayer[1])
       athleteIndeces.push(updatedPlayer[3])
     end
@@ -182,7 +184,17 @@ class UsersController < ApplicationController
     puts rating
     puts "rating after"
     puts finalRating
+    puts "sportIndeces"
+    puts sportIndeces
+    puts "athleteIndeces"
+    puts athleteIndeces
+    puts "index"
+    puts index
+    puts "player sports"
+    puts player["sports"]
     player["sports"][sportIndeces[index]]["rating"] = finalRating
+    puts "updatedfinalrating"
+    puts player["sports"]
     @event["team1"][index]["ratingChange"] = finalRating - @event["team1"][index]["initialRating"]
     team1Ratings[index] = finalRating
   end
@@ -342,7 +354,7 @@ def getInitialRatingData(teamNum, player)
   sportIndex = -1
   athleteIndex = -1
   player["sports"].each_with_index do |sport, idx|
-    if sport["id"] == "10" || sport["id"]
+    if sport["id"] == "10" || sport["id"] == 10
       athleteFound = true
       athleteIndex = idx
     end
@@ -632,6 +644,8 @@ def update
     # this is the index within the User: Sports array
     # that matches the athlete sport (id=10)
     individualAthleteIndeces = ratingChangeData[2]
+    puts "IAI"
+    puts individualAthleteIndeces
     playerIDs = []
     # This is the index within the Athlete Sport for the
     # matching user
@@ -693,11 +707,18 @@ def update
             official: false
           }
         )
+        puts "abouttosaveif"
+        puts player.as_json
         player.save!
       else
         currentPlayerAthleteRating = updateAthlete(athleteIndeces[i], 1, player, sportIndeces[i])
+        puts "playerbeforeupdateathlete"
+        puts player.as_json
+        puts
         player["sports"][individualAthleteIndeces[i]]["rating"] = currentPlayerAthleteRating[0]
         player["sports"][individualAthleteIndeces[i]]["official"] = currentPlayerAthleteRating[1]
+        puts "abouttosaveelse"
+        puts player.as_json
         player.save!
         # player["sports"].each do |sport|
         #   if sport["id"] == "10"
