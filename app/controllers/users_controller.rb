@@ -170,7 +170,7 @@ class UsersController < ApplicationController
       modifierVariable = numberOfOpponents
     end
     if modifierVariable < 5
-      change = amountChanged * (6 - modifierVariable)
+      change = amountChanged * (12 - (2 * modifierVariable))
     else
       change = amountChanged
     end
@@ -180,21 +180,7 @@ class UsersController < ApplicationController
       rating = team1Ratings[index]
     end
     finalRating = calculate(player, rating, change, won, modifierVariable)
-    puts "rating before"
-    puts rating
-    puts "rating after"
-    puts finalRating
-    puts "sportIndeces"
-    puts sportIndeces
-    puts "athleteIndeces"
-    puts athleteIndeces
-    puts "index"
-    puts index
-    puts "player sports"
-    puts player["sports"]
     player["sports"][sportIndeces[index]]["rating"] = finalRating
-    puts "updatedfinalrating"
-    puts player["sports"]
     @event["team1"][index]["ratingChange"] = finalRating - @event["team1"][index]["initialRating"]
     team1Ratings[index] = finalRating
   end
@@ -225,7 +211,7 @@ class UsersController < ApplicationController
       modifierVariable = numberOfOpponents
     end
     if modifierVariable < 5
-      change = amountChanged * (6 - modifierVariable)
+      change = amountChanged * (12 - (2 * modifierVariable))
     else
       change = amountChanged
     end
