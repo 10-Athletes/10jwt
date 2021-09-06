@@ -389,8 +389,10 @@ def updateAthlete(index, team, player, sportIndex)
     rating = player["sports"][sportIndex]["rating"]
     opponents = player["sports"][sportIndex]["opponents"]
   end
+
   sportIncluded = false
   official = false
+  official = true if @athlete["participants"][index]["official"]
   # Please make this more efficient.
   # currently loops through here to figure out
   # if any sport is official prior to looping through
