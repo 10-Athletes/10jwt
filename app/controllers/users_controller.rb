@@ -289,12 +289,6 @@ def calculate(player, initialRating, change, yourTeamWon, modifier)
   puts "didyourteamwin"
   puts yourTeamWon
   if yourTeamWon
-    puts "yourteamwon"
-    puts player.as_json
-    puts "change"
-    puts change
-    puts "modifier"
-    puts modifier
     if initialRating + change > 10 && modifier < 5
       rating = 10
     else
@@ -313,13 +307,21 @@ def calculate(player, initialRating, change, yourTeamWon, modifier)
       end
     end
   else
-    puts "yourteamlost"
-    puts player.as_json
-    puts "change"
-    puts change
-    puts "modifier"
-    puts modifier
-    if initialRating - change < 1
+    if initialRating > 11
+      if initialRating - (change / 4) >= 11
+        rating = initialRating - (change / 4)
+      else
+        gap = (initialRating - 11) * 4
+        rating = 11 - (change - gap) / 2
+      end
+    elsif initialRating > 10
+      if initialRating - (change / 2) >= 10
+        rating = initialRating - (change / 2)
+      else
+        gap = (initialRating - 10) * 2
+        rating = 10 - (change - gap)
+      end
+    elsif initialRating - change < 1
       rating = 1
     else
       rating = initialRating - change
@@ -461,10 +463,10 @@ def updateAthlete(index, team, player, sportIndex)
       end
       #UPDATE FORMULA:
       #If 1 sport: 100%
-      #If 2 sports: 65% of sport1 + 45% of sport2
-      #If 3 sports: 55% of sport1 + 35% of sport2 + 25% of sport3
-      #If 4 sports: 50% of sport1 + 30% of sport2 + 25% of sport3 + 15% of sport4
-      #If 5 sports: 50% of sport1 + 30% of sport2 + 20% of sport3 + 15% of sport4 + 10% of sport5
+      #If 2 sports: 55% of sport1 + 50% of sport2
+      #If 3 sports: 43% of sport1 + 33% of sport2 + 33% of sport3
+      #If 4 sports: 40% of sport1 + 25% of sport2 + 25% of sport3 + 25% of sport4
+      #If 5 sports: 40% of sport1 + 20% of sport2 + 20% of sport3 + 20% of sport4 + 20% of sport5
       puts "thisopplen: #{thisOpponents.length}"
       puts "athleteparticipantsindex: #{@athlete["participants"][index]}"
       if thisOpponents.length >= 5 && @athlete["participants"][index]["sports"][i]["numGames"] >= 5
@@ -524,7 +526,31 @@ def updateAthlete(index, team, player, sportIndex)
   return [maxRating, official]
 end
 
-def athleteRatingCalculation(sports)
+def quickSort(sports)
+  if sports.length <= 1
+     return sports
+  else
+    left = []
+    right = []
+    newArr = []
+    length = sports.length - 1;
+    pivot = sports[length]
+    sports.each do |sport|
+      unless sport["id"] == pivot["id"]
+        if sport["rating"] >= pivot["rating"]
+          left.push(sport)
+        else
+          right.push(sport)
+        end
+      end
+    end
+   newArr = quickSort(left) + [pivot] + quickSort(right)
+   return newArr
+ end
+end
+
+def athleteRatingCalculation(unsortedSports)
+  sports = quickSort(unsortedSports)
   if sports.length >= 1
     maxRating = sports[0]["rating"]
   else
