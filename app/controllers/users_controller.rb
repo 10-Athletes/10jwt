@@ -136,9 +136,9 @@ class UsersController < ApplicationController
   end
 
   if @winner == higherRated
-    amountChanged = 0.05 / amountChanged
+    amountChanged = 0.1 / amountChanged
   else
-    amountChanged = 0.05 * amountChanged
+    amountChanged = 0.1 * amountChanged
   end
   #TODO: refactor so I'm not duplicating 20+ lines of code
   if @winner == "1" || @winner == 1
