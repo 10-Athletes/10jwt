@@ -27,7 +27,6 @@ class UsersController < ApplicationController
 
   def show
     @user = User.find(params[:id]).as_json
-    puts ENV[TEST_PW]
     if @user
        render json: {
          user: @user
