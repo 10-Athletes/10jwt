@@ -18,6 +18,7 @@ class UsersController < ApplicationController
   def create
     input = User.new(params.permit(:username, :password, :firstname, :lastname, :email))
     if(input.save)
+      # UsersEmail.welcome_email(input).deliver_now
       :ok
     else
       :bad_request
@@ -26,6 +27,7 @@ class UsersController < ApplicationController
 
   def show
     @user = User.find(params[:id]).as_json
+    puts ENV[TEST_PW]
     if @user
        render json: {
          user: @user
