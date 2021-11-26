@@ -25,7 +25,6 @@ class UsersController < ApplicationController
   end
 
   def show
-    puts process.env.TEST_PW
     @user = User.find(params[:id]).as_json
     if @user
        render json: {
