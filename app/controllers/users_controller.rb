@@ -18,7 +18,6 @@ class UsersController < ApplicationController
   def create
     input = User.new(params.permit(:username, :password, :firstname, :lastname, :email))
     if(input.save)
-      # UsersEmail.welcome_email(input).deliver_now
       :ok
     else
       :bad_request
