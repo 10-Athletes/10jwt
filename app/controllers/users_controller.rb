@@ -92,8 +92,6 @@ class UsersController < ApplicationController
       if updatedPlayer[2] > 0
         numRated += 1
       end
-      puts "updatedPlayer"
-      puts updatedPlayer.as_json
       sportIndeces.push(updatedPlayer[1])
       athleteIndeces.push(updatedPlayer[3])
     end
@@ -158,19 +156,77 @@ class UsersController < ApplicationController
     # MAYBE DEFINE A VARIABLE STORED IN PLAYER{sport}
     # MAYBE STORE EVENTS WITHIN PLAYER{sport}
     numberOfGames = 0
+    multiplierArray = []
+    player["sports"][sportIndeces[index]]["opponents"].each_with_index do |opp, num|
+      if num < 5
+        matchFound = false
+        @team2.each do |member|
+          if member["id"] == opp && !matchFound
+            matchFound = true
+          end
+        end
+        if matchFound
+          multiplierArray[num] = 5 - num
+        else
+          multiplierArray[num] = 0
+        end
+      else
+        break
+      end
+    end
+
     player["events"].each do |event|
       if event["sport"] == @sportID
         numberOfGames += 1
+        if numberOfGames < 5 || numberOfOpponents < 5
+          teamMatches = []
+          matchCount = 0
+          playerTeam = 0
+          event["team1"].each do |teamMember|
+            if teamMember["id"] == player["id"]
+              teamMatches = []
+              matchCount = 0
+              playerTeam = 1
+              break
+            end
+            player["sports"][sportIndeces[index]]["opponents"].each_with_index do |currentOpponent, oppIdx|
+              if teamMember["id"] == currentOpponent && oppIdx < 5
+                teamMatches[matchCount] = oppIdx
+                matchCount += 1
+              end
+            end
+          end
+          if playerTeam == 1
+            event["team2"].each do |teamMember|
+              player["sports"][sportIndeces[index]]["opponents"].each_with_index do |currentOpponent, oppIdx|
+                if teamMember["id"] == currentOpponent && oppIdx < 5
+                  teamMatches[matchCount] = oppIdx
+                  matchCount += 1
+                end
+              end
+            end
+          end
+          if matchCount > 0
+            teamMatches.each do |match|
+              multiplierArray[match] -= 1
+            end
+          end
+        end
       end
     end
+
     numberOfGames += 1
-    if numberOfOpponents > numberOfGames
-      modifierVariable = numberOfGames
-    else
-      modifierVariable = numberOfOpponents
+    # if numberOfOpponents > numberOfGames
+    #   modifierVariable = numberOfGames
+    # else
+    #   modifierVariable = numberOfOpponents
+    # end
+    maxMultiplier = multiplierArray[0]
+    multiplierArray.each do |multiplier|
+      maxMultiplier = multiplier if multiplier > maxMultiplier
     end
-    if modifierVariable < 5
-      change = amountChanged * (12 - (2 * modifierVariable))
+    if maxMultiplier > 0 && (numberOfGames < 5 || numberOfOpponents < 5)
+      change = amountChanged * 2 * maxMultiplier
     else
       change = amountChanged
     end
@@ -179,7 +235,7 @@ class UsersController < ApplicationController
     else
       rating = team1Ratings[index]
     end
-    finalRating = calculate(player, rating, change, won, modifierVariable)
+    finalRating = calculate(player, rating, change, won, maxMultiplier)
     player["sports"][sportIndeces[index]]["rating"] = finalRating
     @event["team1"][index]["ratingChange"] = finalRating - @event["team1"][index]["initialRating"]
     team1Ratings[index] = finalRating
@@ -192,6 +248,7 @@ class UsersController < ApplicationController
   #TODO DRY out this code
   @team2.each_with_index do |player, index|
     numberOfGames = 0
+    multiplierArray = []
     # if player["sports"].length == 0
     #   numberOfOpponents = 0
     # else
@@ -199,19 +256,79 @@ class UsersController < ApplicationController
     player["sports"][sportIndeces[index + @team1.length]]["opponents"] ||= player["sports"][sportIndeces[index + @team1.length]][:opponents]
     numberOfOpponents = player["sports"][sportIndeces[index + @team1.length]]["opponents"].length
     # end
+    player["sports"][sportIndeces[index + @team1.length]]["opponents"].each_with_index do |opp, num|
+      if num < 5
+        matchFound = false
+        @team1.each do |member|
+          if member["id"] == opp && !matchFound
+            matchFound = true
+          end
+        end
+        if matchFound
+          multiplierArray[num] = 5 - num
+        else
+          multiplierArray[num] = 0
+        end
+      else
+        break
+      end
+    end
     player["events"].each do |event|
       if event["sport"] == @sportID
         numberOfGames += 1
+        if numberOfGames < 5 || numberOfOpponents < 5
+          teamMatches = []
+          matchCount = 0
+          playerTeam = 0
+          event["team1"].each do |teamMember|
+            if teamMember["id"] == player["id"]
+              teamMatches = []
+              matchCount = 0
+              playerTeam = 1
+              break
+            end
+            player["sports"][sportIndeces[index + @team1.length]]["opponents"].each_with_index do |currentOpponent, oppIdx|
+              if teamMember["id"] == currentOpponent && oppIdx < 5
+                teamMatches[matchCount] = oppIdx
+                matchCount += 1
+              end
+            end
+          end
+          if playerTeam == 1
+            event["team2"].each do |teamMember|
+              player["sports"][sportIndeces[index + @team1.length]]["opponents"].each_with_index do |currentOpponent, oppIdx|
+                if teamMember["id"] == currentOpponent && oppIdx < 5
+                  teamMatches[matchCount] = oppIdx
+                  matchCount += 1
+                end
+              end
+            end
+          end
+          if matchCount > 0
+            teamMatches.each do |match|
+              multiplierArray[match] -= 1
+            end
+          end
+        end
       end
     end
+    # player["events"].each do |event|
+    #   if event["sport"] == @sportID
+    #     numberOfGames += 1
+    #   end
+    # end
     numberOfGames += 1
-    if numberOfOpponents > numberOfGames
-      modifierVariable = numberOfGames
-    else
-      modifierVariable = numberOfOpponents
+    # if numberOfOpponents > numberOfGames
+    #   modifierVariable = numberOfGames
+    # else
+    #   modifierVariable = numberOfOpponents
+    # end
+    maxMultiplier = multiplierArray[0]
+    multiplierArray.each do |multiplier|
+      maxMultiplier = multiplier if multiplier > maxMultiplier
     end
-    if modifierVariable < 5
-      change = amountChanged * (12 - (2 * modifierVariable))
+    if maxMultiplier > 0 && (numberOfGames < 5 || numberOfOpponents < 5)
+      change = amountChanged * 2 * maxMultiplier
     else
       change = amountChanged
     end
@@ -220,7 +337,7 @@ class UsersController < ApplicationController
     else
       rating = team2Ratings[index]
     end
-    finalRating = calculate(player, rating, change, won, modifierVariable)
+    finalRating = calculate(player, rating, change, won, maxMultiplier)
     player["sports"][sportIndeces[index + @team1.length]]["rating"] = finalRating
     @event["team2"][index]["ratingChange"] = finalRating - @event["team2"][index]["initialRating"]
     team2Ratings[index] = finalRating
@@ -286,8 +403,6 @@ class UsersController < ApplicationController
 end
 
 def calculate(player, initialRating, change, yourTeamWon, modifier)
-  puts "didyourteamwin"
-  puts yourTeamWon
   if yourTeamWon
     if initialRating + change > 10 && modifier < 5
       rating = 10
@@ -467,8 +582,6 @@ def updateAthlete(index, team, player, sportIndex)
       #If 3 sports: 43% of sport1 + 33% of sport2 + 33% of sport3
       #If 4 sports: 40% of sport1 + 25% of sport2 + 25% of sport3 + 25% of sport4
       #If 5 sports: 40% of sport1 + 20% of sport2 + 20% of sport3 + 20% of sport4 + 20% of sport5
-      puts "thisopplen: #{thisOpponents.length}"
-      puts "athleteparticipantsindex: #{@athlete["participants"][index]}"
       if thisOpponents.length >= 5 && @athlete["participants"][index]["sports"][i]["numGames"] >= 5
         officialSports.push(sport)
       end
@@ -653,13 +766,10 @@ def update
     ratingChangeData = ratingChange()
     sportIndeces = ratingChangeData[0]
     ratings = ratingChangeData[1]
-    puts "ratings"
-    puts ratings
+
     # this is the index within the User: Sports array
     # that matches the athlete sport (id=10)
     individualAthleteIndeces = ratingChangeData[2]
-    puts "IAI"
-    puts individualAthleteIndeces
     playerIDs = []
     # This is the index within the Athlete Sport for the
     # matching user
@@ -691,8 +801,6 @@ def update
     # pushing to array was having timing issues
     # resolved it by just setting to count position in array
     count = 0
-    puts "indeces"
-    puts athleteIndeces
     @team1.each_with_index do |player, i|
       if athleteIndeces[i] < 0
         name = player["firstname"] + " " + player["lastname"]
@@ -721,18 +829,11 @@ def update
             official: false
           }
         )
-        puts "abouttosaveif"
-        puts player.as_json
         player.save!
       else
         currentPlayerAthleteRating = updateAthlete(athleteIndeces[i], 1, player, sportIndeces[i])
-        puts "playerbeforeupdateathlete"
-        puts player.as_json
-        puts
         player["sports"][individualAthleteIndeces[i]]["rating"] = currentPlayerAthleteRating[0]
         player["sports"][individualAthleteIndeces[i]]["official"] = currentPlayerAthleteRating[1]
-        puts "abouttosaveelse"
-        puts player.as_json
         player.save!
         # player["sports"].each do |sport|
         #   if sport["id"] == "10"
@@ -786,7 +887,6 @@ def update
       end
     end
     @athlete["participants"] += newAthleteParticipants + newAthleteTeam2Participants
-    puts @athlete.as_json
     @athlete.save!
     @sport = Sport.find(@sportID)
     @sport["participants"].each_with_index do |participant, index|
@@ -798,8 +898,6 @@ def update
     end
     participantsLength = @sport["participants"].length
     @team1.each_with_index do |player, i|
-      puts "team1 included?"
-      puts indecesWithinSport[i]
       if indecesWithinSport[i] < 0
         name = player["firstname"] + " " + player["lastname"]
         # indecesWithinSport[i] = @sport["participants"].length
