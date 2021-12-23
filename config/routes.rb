@@ -4,6 +4,7 @@ Rails.application.routes.draw do
   resources :users
   resources :tokens, only: [:create]
   resources :sports, only: [:create, :show, :index, :update]
+  resources :events, only: [:show, :index]
 
   # For details on the DSL available within this file, see https://guides.rubyonrails.org/routing.html
 end

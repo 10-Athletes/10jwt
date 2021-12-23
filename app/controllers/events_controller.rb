@@ -1,4 +1,19 @@
 class EventsController < ApplicationController
+
+  def index
+    @events = Event.last(30).as_json
+    if @events
+      render json: {
+        events: @events
+      }
+    else
+      render json: {
+        status: 500,
+        errors: ['no events found']
+      }
+    end
+  end
+
   def getRating(player)
     rated = false
     player[:sports].each do |sport|
