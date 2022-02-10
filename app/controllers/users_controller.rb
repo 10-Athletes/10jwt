@@ -138,6 +138,7 @@ class UsersController < ApplicationController
   else
     amountChanged = 0.1 * amountChanged
   end
+  #amountChanged = 0.1 if handicapped
   #TODO: refactor so I'm not duplicating 20+ lines of code
   if @winner == "1" || @winner == 1
     won = true
@@ -235,7 +236,11 @@ class UsersController < ApplicationController
     else
       rating = team1Ratings[index]
     end
-    finalRating = calculate(player, rating, change, won, maxMultiplier)
+    sportIsOfficial = false
+    if numberOfGames >= 5 && numberOfOpponents >= 5
+      sportIsOfficial = true
+    end
+    finalRating = calculate(player, rating, change, won, sportIsOfficial)
     player["sports"][sportIndeces[index]]["rating"] = finalRating
     @event["team1"][index]["ratingChange"] = finalRating - @event["team1"][index]["initialRating"]
     team1Ratings[index] = finalRating
@@ -337,7 +342,11 @@ class UsersController < ApplicationController
     else
       rating = team2Ratings[index]
     end
-    finalRating = calculate(player, rating, change, won, maxMultiplier)
+    sportIsOfficial = false
+    if numberOfGames >= 5 && numberOfOpponents >= 5
+      sportIsOfficial = true
+    end
+    finalRating = calculate(player, rating, change, won, sportIsOfficial)
     player["sports"][sportIndeces[index + @team1.length]]["rating"] = finalRating
     @event["team2"][index]["ratingChange"] = finalRating - @event["team2"][index]["initialRating"]
     team2Ratings[index] = finalRating
@@ -402,9 +411,9 @@ class UsersController < ApplicationController
   # @p2Data[1] = @p2Data[1]
 end
 
-def calculate(player, initialRating, change, yourTeamWon, modifier)
+def calculate(player, initialRating, change, yourTeamWon, official)
   if yourTeamWon
-    if initialRating + change > 10 && modifier < 5
+    if initialRating + change > 10 && !official
       rating = 10
     else
       if initialRating >= 10
@@ -777,17 +786,19 @@ def update
     # The index within the sport being played for the
     # matching user
     indecesWithinSport = []
+    playerEvent = @event.clone
+    playerEvent["created_at"] = DateTime.now
     @team1.each do |player|
       playerIDs.push(player["id"])
       athleteIndeces.push(-1)
       indecesWithinSport.push(-1)
-      player["events"].push(@event)
+      player["events"].push(playerEvent)
     end
     @team2.each do |player|
       playerIDs.push(player["id"])
       athleteIndeces.push(-1)
       indecesWithinSport.push(-1)
-      player["events"].push(@event)
+      player["events"].push(playerEvent)
     end
     Event.create(@event)
     @athlete["participants"].each_with_index do |participant, index|
