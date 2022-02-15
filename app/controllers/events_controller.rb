@@ -1,7 +1,7 @@
 class EventsController < ApplicationController
 
   def index
-    @events = Event.last(30).as_json
+    @events = Event.last(10).as_json
     if @events
       render json: {
         events: @events
