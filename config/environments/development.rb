@@ -34,7 +34,7 @@ config.hosts << "01e0-47-208-254-4.ngrok.io"
   config.active_storage.service = :local
 
   # Don't care if the mailer can't send.
-  config.action_mailer.raise_delivery_errors = false
+  config.action_mailer.raise_delivery_errors = true
 
   config.action_mailer.perform_caching = false
 
@@ -61,4 +61,15 @@ config.hosts << "01e0-47-208-254-4.ngrok.io"
   # Use an evented file watcher to asynchronously detect changes in source code,
   # routes, locales, etc. This feature depends on the listen gem.
   config.file_watcher = ActiveSupport::EventedFileUpdateChecker
+  host = 'localhost:3000'
+  config.action_mailer.default_url_options = { :host => 'localhost:3000', protocol: 'http' }
+  config.action_mailer.delivery_method = :smtp
+  config.action_mailer.smtp_settings = {
+   address:              'smtp.gmail.com',
+   port:                 587,
+   domain:               '10athletes.com',
+   user_name:            ENV["GMAIL_USERNAME"],
+   password:             ENV["GMAIL_PASSWORD"],
+   authentication:       'plain',
+}
 end

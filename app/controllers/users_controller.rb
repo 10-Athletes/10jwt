@@ -18,6 +18,7 @@ class UsersController < ApplicationController
   def create
     input = User.new(params.permit(:username, :password, :firstname, :lastname, :email))
     if(input.save)
+      UsermailerMailer.welcome_email(input).deliver
       :ok
     else
       :bad_request

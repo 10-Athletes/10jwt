@@ -6,5 +6,11 @@ Rails.application.routes.draw do
   resources :sports, only: [:create, :show, :index, :update]
   resources :events, only: [:show, :index]
 
+  get 'password/reset', to: 'password_resets#new'
+  post 'password/reset', to: 'password_resets#create'
+  get 'password/reset/edit', to: 'password_resets#edit'
+  patch 'password/reset/edit', to: 'password_resets#update'
+  patch 'password/reset/validate', to: 'password_resets#validate'
+
   # For details on the DSL available within this file, see https://guides.rubyonrails.org/routing.html
 end
