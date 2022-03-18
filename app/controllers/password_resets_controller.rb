@@ -17,6 +17,7 @@ class PasswordResetsController < ApplicationController
       @user = User.find_by(username: params[:emailOrUsername])
     end
     if @user.present?
+      puts "FOUND USER DOING STUFFS"
       PasswordMailer.with(user: @user).reset.deliver_later
       :ok
     else
