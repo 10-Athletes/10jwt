@@ -30,6 +30,8 @@ class PasswordResetsController < ApplicationController
 
   def update
     token = convertToken()
+    puts "this is a token"
+    puts token
     @user = GlobalID::Locator.locate_signed(token, purpose: "password_reset")
     if @user.update(password: params[:password])
       :ok
