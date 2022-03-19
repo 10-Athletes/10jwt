@@ -30,6 +30,9 @@ class PasswordResetsController < ApplicationController
 
   def update
     @user = GlobalID::Locator.locate_signed(params[:token], purpose: "password_reset")
+    if @user
+      puts @user.as_json
+    end
     if @user.update(password: params[:password])
       :ok
     else
