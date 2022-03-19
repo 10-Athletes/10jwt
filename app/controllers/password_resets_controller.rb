@@ -54,7 +54,7 @@ class PasswordResetsController < ApplicationController
       if i < params[:token].length - 2 && char == '%' && params[:token][i+1] == '3' && params[:token][i+2] == 'D'
         token += '='
         counter = 2
-      elsif counter == 0
+      elsif counter > 0
         counter -= 1
       else
         token += char
