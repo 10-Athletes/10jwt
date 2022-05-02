@@ -15,6 +15,31 @@ class UsersController < ApplicationController
     end
   end
 
+  def index_logged_out
+    @users = User.all.as_json
+    users = []
+    if @users
+      @users.each do |user|
+        users.push({
+          id: user["id"],
+          username: user["username"],
+          firstname: user["firstname"],
+          lastname: user["lastname"],
+          events: user["events"],
+          sports: user["sports"]
+        })
+      end
+      render json: {
+        users: users
+      }
+    else
+      render json: {
+        status: 500,
+        errors: ['no users found']
+      }
+    end
+  end
+
   def create
     input = User.new(params.permit(:username, :password, :firstname, :lastname, :email))
     if(input.save)
@@ -30,6 +55,28 @@ class UsersController < ApplicationController
     if @user
        render json: {
          user: @user
+       }
+    else
+       render json: {
+         status: 500,
+         errors: ['user not found']
+       }
+    end
+  end
+
+  def show_logged_out
+    @user = User.find(params[:id]).as_json
+    if @user
+      user = {
+        id: @user["id"],
+        username: @user["username"],
+        firstname: @user["firstname"],
+        lastname: @user["lastname"],
+        events: @user["events"],
+        sports: @user["sports"]
+      }
+       render json: {
+         user: user
        }
     else
        render json: {
@@ -1087,13 +1134,55 @@ def update
     render json: {status: 200, updated: true}
   elsif params.has_key?("newSport")
     updateSport()
+  elsif params.has_key?("updateContact")
+    contact = {}
+    if params["updateContact"]["email"]
+      contact["email"] = params["updateContact"]["email"]
+    elsif @user["contact"][0]["email"]
+      contact["email"] = @user["contact"][0]["email"]
+    end
+    if params["updateContact"]["phoneNumber"]
+      contact["phoneNumber"] = params["updateContact"]["phoneNumber"]
+    elsif @user["contact"][0]["phoneNumber"]
+      contact["phoneNumber"] = @user["contact"][0]["phoneNumber"]
+    end
+    if params["updateContact"]["location"]
+      contact["location"] = params["updateContact"]["location"]
+    elsif @user["contact"][0]["location"]
+      contact["location"] = @user["contact"][0]["location"]
+    end
+    if params["updateContact"]["availability"]
+      contact["availability"] = params["updateContact"]["availability"]
+    elsif @user["contact"][0]["availability"]
+      contact["availability"] = @user["contact"][0]["availability"]
+    end
+    if params["updateContact"]["other"]
+      contact["other"] = params["updateContact"]["other"]
+    elsif @user["contact"][0]["other"]
+      contact["other"] = @user["contact"][0]["other"]
+    end
+    if params["updateContact"]["age"]
+      contact["age"] = params["updateContact"]["age"]
+    elsif @user["contact"][0]["age"]
+      contact["age"] = @user["contact"][0]["age"]
+    end
+    if params["updateContact"]["gender"]
+      contact["gender"] = params["updateContact"]["gender"]
+    elsif @user["contact"][0]["gender"]
+      contact["gender"] = @user["contact"][0]["gender"]
+    end
+    unless contact == @user["contact"][0]
+      @user["contact"][0] = contact
+      @user.save!
+      render json: {status: 200, updated: true}
+    end
   end
-  @user
+
 end
 
 private
 
   def user_params
-    params.require(:user).permit(:username, :email, :firstname, :lastname, :password, :password_confirmation, :newEvent, :rating, :newSport)
+    params.require(:user).permit(:username, :email, :firstname, :lastname, :password, :password_confirmation, :newEvent, :rating, :newSport, :phoneNumber, :location, :other, :gender, :age)
   end
 end

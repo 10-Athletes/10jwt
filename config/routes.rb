@@ -6,6 +6,9 @@ Rails.application.routes.draw do
   resources :sports, only: [:create, :show, :index, :update]
   resources :events, only: [:show, :index]
 
+  get 'usersloggedout', to: 'users#index_logged_out'
+  get 'userloggedout/:id', to: 'users#show_logged_out'
+
   get 'password/reset', to: 'password_resets#new'
   post 'password/reset', to: 'password_resets#create'
   get 'password/reset/edit', to: 'password_resets#edit'
