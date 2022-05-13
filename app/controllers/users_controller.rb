@@ -1161,7 +1161,7 @@ def update
     elsif @user["contact"][0]["other"]
       contact["other"] = @user["contact"][0]["other"]
     end
-    if params["updateContact"]["age"]
+    if params["updateContact"]["age"] && params["updateContact"]["age"] != {}
       contact["age"] = params["updateContact"]["age"]
     elsif @user["contact"][0]["age"]
       contact["age"] = @user["contact"][0]["age"]
